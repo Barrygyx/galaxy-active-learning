@@ -1,0 +1,3 @@
+# Reuse existing torch, numpy, matplotlib, threadpoolctl from the AL environment.
+# Add only the linear classifier dependency; do not upgrade the original torch stack.
+scikit-learn>=1.5,<2

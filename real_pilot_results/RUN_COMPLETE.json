@@ -1,0 +1,17 @@
+{
+  "smoke": false,
+  "test_evaluated": false,
+  "models": [
+    "tiny_cnn_aug",
+    "resnet18_frozen",
+    "resnet18_partial_aug",
+    "resnet18_full_aug",
+    "mobilenet_small_aug",
+    "resnet18_scratch_aug",
+    "resnet18_partial_noaug",
+    "efficientnet_b0_aug",
+    "resnet18_partial_balanced_aug"
+  ],
+  "train_size": 512,
+  "best_on_validation": "resnet18_partial_aug"
+}

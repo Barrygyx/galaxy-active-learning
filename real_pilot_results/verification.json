@@ -1,0 +1,17 @@
+{
+  "official_dataset_sha256": "19aefc477c41bb7f77ff07599a6b82a038dc042f889a111b0d4d98bb755c1571",
+  "fixed_split_sha256": "39c4d6ecc7c0d823bafece1a0858b908d495a86e5dff3692c981808c705f6703",
+  "train_size": 512,
+  "validation_monitor": 400,
+  "full_validation_size": 2643,
+  "train_class4": 6,
+  "validation_class4": 50,
+  "models_completed": 9,
+  "seed": 42,
+  "test_evaluated": false,
+  "all_predictions_recomputed": true,
+  "all_model_artifacts_hash_verified": true,
+  "planned_subsets_matched": true,
+  "original_source_stat_unchanged": true,
+  "ensemble_recomputed": true
+}

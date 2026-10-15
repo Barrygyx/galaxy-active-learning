@@ -1,0 +1,11 @@
+﻿label,class_name,original,excluded,clean,train_pool,validation,test
+0,Disturbed Galaxies,1081,30,1051,736,158,157
+1,Merging Galaxies,1853,14,1839,1287,276,276
+2,Round Smooth Galaxies,2645,10,2635,1845,395,395
+3,In-between Round Smooth Galaxies,2027,6,2021,1415,303,303
+4,Cigar Shaped Smooth Galaxies,334,1,333,233,50,50
+5,Barred Spiral Galaxies,2043,5,2038,1426,306,306
+6,Unbarred Tight Spiral Galaxies,1829,10,1819,1273,273,273
+7,Unbarred Loose Spiral Galaxies,2628,33,2595,1817,389,389
+8,Edge-on Galaxies without Bulge,1423,4,1419,993,213,213
+9,Edge-on Galaxies with Bulge,1873,8,1865,1305,280,280

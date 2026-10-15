@@ -1,0 +1,91 @@
+﻿seed,split,class_id,class_name,support
+42,train,0,Disturbed,111
+42,train,1,Merging,219
+42,train,2,Round smooth,297
+42,train,3,In-between round smooth,254
+42,train,4,Cigar shaped smooth,36
+42,train,5,Barred spiral,228
+42,train,6,Unbarred tight spiral,192
+42,train,7,Unbarred loose spiral,297
+42,train,8,Edge-on without bulge,154
+42,train,9,Edge-on with bulge,212
+42,monitor,0,Disturbed,48
+42,monitor,1,Merging,83
+42,monitor,2,Round smooth,119
+42,monitor,3,In-between round smooth,92
+42,monitor,4,Cigar shaped smooth,15
+42,monitor,5,Barred spiral,93
+42,monitor,6,Unbarred tight spiral,83
+42,monitor,7,Unbarred loose spiral,118
+42,monitor,8,Edge-on without bulge,64
+42,monitor,9,Edge-on with bulge,85
+42,validation,0,Disturbed,158
+42,validation,1,Merging,276
+42,validation,2,Round smooth,395
+42,validation,3,In-between round smooth,303
+42,validation,4,Cigar shaped smooth,50
+42,validation,5,Barred spiral,306
+42,validation,6,Unbarred tight spiral,273
+42,validation,7,Unbarred loose spiral,389
+42,validation,8,Edge-on without bulge,213
+42,validation,9,Edge-on with bulge,280
+43,train,0,Disturbed,122
+43,train,1,Merging,210
+43,train,2,Round smooth,297
+43,train,3,In-between round smooth,234
+43,train,4,Cigar shaped smooth,44
+43,train,5,Barred spiral,227
+43,train,6,Unbarred tight spiral,219
+43,train,7,Unbarred loose spiral,317
+43,train,8,Edge-on without bulge,139
+43,train,9,Edge-on with bulge,191
+43,monitor,0,Disturbed,48
+43,monitor,1,Merging,83
+43,monitor,2,Round smooth,119
+43,monitor,3,In-between round smooth,92
+43,monitor,4,Cigar shaped smooth,15
+43,monitor,5,Barred spiral,93
+43,monitor,6,Unbarred tight spiral,83
+43,monitor,7,Unbarred loose spiral,118
+43,monitor,8,Edge-on without bulge,64
+43,monitor,9,Edge-on with bulge,85
+43,validation,0,Disturbed,158
+43,validation,1,Merging,276
+43,validation,2,Round smooth,395
+43,validation,3,In-between round smooth,303
+43,validation,4,Cigar shaped smooth,50
+43,validation,5,Barred spiral,306
+43,validation,6,Unbarred tight spiral,273
+43,validation,7,Unbarred loose spiral,389
+43,validation,8,Edge-on without bulge,213
+43,validation,9,Edge-on with bulge,280
+44,train,0,Disturbed,116
+44,train,1,Merging,224
+44,train,2,Round smooth,319
+44,train,3,In-between round smooth,243
+44,train,4,Cigar shaped smooth,39
+44,train,5,Barred spiral,227
+44,train,6,Unbarred tight spiral,194
+44,train,7,Unbarred loose spiral,295
+44,train,8,Edge-on without bulge,143
+44,train,9,Edge-on with bulge,200
+44,monitor,0,Disturbed,48
+44,monitor,1,Merging,83
+44,monitor,2,Round smooth,119
+44,monitor,3,In-between round smooth,92
+44,monitor,4,Cigar shaped smooth,15
+44,monitor,5,Barred spiral,93
+44,monitor,6,Unbarred tight spiral,83
+44,monitor,7,Unbarred loose spiral,118
+44,monitor,8,Edge-on without bulge,64
+44,monitor,9,Edge-on with bulge,85
+44,validation,0,Disturbed,158
+44,validation,1,Merging,276
+44,validation,2,Round smooth,395
+44,validation,3,In-between round smooth,303
+44,validation,4,Cigar shaped smooth,50
+44,validation,5,Barred spiral,306
+44,validation,6,Unbarred tight spiral,273
+44,validation,7,Unbarred loose spiral,389
+44,validation,8,Edge-on without bulge,213
+44,validation,9,Edge-on with bulge,280

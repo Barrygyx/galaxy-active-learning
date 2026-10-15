@@ -1,0 +1,133 @@
+{
+  "created_utc": "20261014T042419_288789Z",
+  "source_file": "C:\\Users\\Barry\\Desktop\\galaxy-active-learning\\data\\raw\\Galaxy10_DECals.h5",
+  "source_size_bytes": 2735267419,
+  "source_image_shape": [
+    17736,
+    256,
+    256,
+    3
+  ],
+  "source_image_dtype": "uint8",
+  "script_sha256": "356235b2144cfea495b593798be688eda2652fcd3c4948ab1a926cee75e591c5",
+  "versions": {
+    "python": "3.11.7",
+    "numpy": "2.4.6",
+    "h5py": "3.16.0"
+  },
+  "seed": 42,
+  "original_count": 17736,
+  "clean_count": 17615,
+  "excluded_count": 121,
+  "excluded_fraction": 0.006822282363554353,
+  "exact_image_duplicate_groups": 60,
+  "exact_coordinate_duplicate_groups": 59,
+  "conflicting_linked_groups": 60,
+  "images_with_nonfinite_pixels": 0,
+  "exclusion_reason_counts": {
+    "conflicting_labels_in_linked_group": 121
+  },
+  "original_class_counts": {
+    "0": 1081,
+    "1": 1853,
+    "2": 2645,
+    "3": 2027,
+    "4": 334,
+    "5": 2043,
+    "6": 1829,
+    "7": 2628,
+    "8": 1423,
+    "9": 1873
+  },
+  "clean_class_counts": {
+    "0": 1051,
+    "1": 1839,
+    "2": 2635,
+    "3": 2021,
+    "4": 333,
+    "5": 2038,
+    "6": 1819,
+    "7": 2595,
+    "8": 1419,
+    "9": 1865
+  },
+  "split_sizes": {
+    "train_pool": 12330,
+    "validation": 2643,
+    "test": 2642
+  },
+  "split_class_counts": {
+    "train_pool": {
+      "0": 736,
+      "1": 1287,
+      "2": 1845,
+      "3": 1415,
+      "4": 233,
+      "5": 1426,
+      "6": 1273,
+      "7": 1817,
+      "8": 993,
+      "9": 1305
+    },
+    "validation": {
+      "0": 158,
+      "1": 276,
+      "2": 395,
+      "3": 303,
+      "4": 50,
+      "5": 306,
+      "6": 273,
+      "7": 389,
+      "8": 213,
+      "9": 280
+    },
+    "test": {
+      "0": 157,
+      "1": 276,
+      "2": 395,
+      "3": 303,
+      "4": 50,
+      "5": 306,
+      "6": 273,
+      "7": 389,
+      "8": 213,
+      "9": 280
+    }
+  },
+  "metadata_checks": {
+    "ra": {
+      "nonfinite_count": 0
+    },
+    "dec": {
+      "nonfinite_count": 0
+    },
+    "redshift": {
+      "nonfinite_count": 92
+    },
+    "pxscale": {
+      "nonfinite_count": 0
+    }
+  },
+  "metadata_notes": [],
+  "index_semantics": "All indices are zero-based ORIGINAL rows in the source HDF5.",
+  "split_policy": "Per-class 70/15/15 largest-remainder allocation, seeded numpy default_rng.",
+  "cleaning_policy": {
+    "grouping": "Transitive union of byte-identical images and exactly equal finite RA/Dec pairs.",
+    "conflicts": "Exclude entire linked group; do not guess or vote on its label.",
+    "consistent_groups": "Keep smallest original index with finite pixels.",
+    "metadata_missing": "Retain image; metadata is not a classifier input.",
+    "class_imbalance": "Preserve natural proportions; no oversampling or balancing here."
+  },
+  "limitations": [
+    "Exact-coordinate matches are used as conservative linkage, not verified catalog identities.",
+    "Near-duplicate images and slightly different coordinates may remain undetected.",
+    "The curated subset excludes ambiguous linked labels; performance is not for the full raw dataset.",
+    "Validation/test labels are fixed evaluation resources and must be reported separately from query budgets."
+  ],
+  "artifact_sha256": {
+    "clean_indices.csv": "6dfc6d585c520d6b62079bf45fba09058e498b5c4c7c8ca6315ff103b36b56cd",
+    "splits.csv": "39c4d6ecc7c0d823bafece1a0858b908d495a86e5dff3692c981808c705f6703",
+    "excluded_samples.csv": "d65c5bea602d2879ea4d0b9599d9f1b6f5ec41c3c7d74bb720df3c2e9067e1f0",
+    "cleaning_audit.csv": "9a588ffa6b5815f8111d5c903bf4b8880c2aecfd3be16d0d3d70cdc6a8cac8ca"
+  }
+}

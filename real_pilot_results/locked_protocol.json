@@ -1,0 +1,96 @@
+{
+  "split_sha256": "39c4d6ecc7c0d823bafece1a0858b908d495a86e5dff3692c981808c705f6703",
+  "source_file": "/workspace/scratch/a334335a16c4/real_image_pilot/Galaxy10_DECals.h5",
+  "prepared_dir": "/workspace/scratch/a334335a16c4/real_image_pilot/project/prepared",
+  "image_cache": "/workspace/scratch/a334335a16c4/real_image_pilot/project/cache/image_demo/8bd9370ebf3e81f4",
+  "images_sha256": "c33292f485ab1a076b8648aa4fa89629564a157d820e8d1b7422c2a566897b4e",
+  "train_source_ids_sha256": "28bf1683bd846c0487b94b01b3f711685fe83bb3d9e469bf4903f4f86456725f",
+  "monitor_source_ids_sha256": "8132295ff5f454ef866ae0a868e7816b322ee4e6fca08140ee3d59f3ea4a71d2",
+  "image_size": 128,
+  "train_size": 512,
+  "monitor_size": 400,
+  "full_validation_size": 2643,
+  "settings": {
+    "seed": 42,
+    "epochs": 6,
+    "patience": 4,
+    "min_epochs": 4,
+    "warmup_epochs": 1,
+    "batch_size": 32,
+    "min_delta": 0.0001,
+    "head_lr": 0.001,
+    "backbone_lr": 0.0001,
+    "scratch_lr": 0.001,
+    "weight_decay": 0.0001
+  },
+  "device": "cpu",
+  "threads": 4,
+  "smoke": false,
+  "test_evaluated": false,
+  "catalog": {
+    "tiny_cnn_aug": {
+      "arch": "tiny",
+      "mode": "scratch",
+      "augment": true
+    },
+    "resnet18_frozen": {
+      "arch": "resnet18",
+      "mode": "frozen",
+      "augment": false
+    },
+    "resnet18_partial_aug": {
+      "arch": "resnet18",
+      "mode": "partial",
+      "augment": true
+    },
+    "resnet18_full_aug": {
+      "arch": "resnet18",
+      "mode": "full",
+      "augment": true
+    },
+    "mobilenet_small_aug": {
+      "arch": "mobilenet",
+      "mode": "full",
+      "augment": true
+    },
+    "resnet18_scratch_aug": {
+      "arch": "resnet18",
+      "mode": "scratch",
+      "augment": true
+    },
+    "resnet18_partial_noaug": {
+      "arch": "resnet18",
+      "mode": "partial",
+      "augment": false
+    },
+    "efficientnet_b0_aug": {
+      "arch": "efficientnet",
+      "mode": "full",
+      "augment": true
+    },
+    "resnet18_partial_balanced_aug": {
+      "arch": "resnet18",
+      "mode": "partial",
+      "augment": true,
+      "balanced": true
+    }
+  },
+  "augmentation": "independent quarter-turns, horizontal/vertical flips; train only",
+  "pretrained_batchnorm": "running stats frozen; selected affine parameters trainable",
+  "versions": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "numpy": "2.3.5",
+    "torch": "2.14.1+cpu",
+    "torchvision": "0.29.1+cpu",
+    "h5py": "3.16.0"
+  },
+  "code_sha256": {
+    "run_image_demo.py": "c54714fa79e8bcf1cbf36f83194c8cff5694d8da38eff3206ab7c0927c16964a",
+    "galaxy_image_demo/__init__.py": "5b02196010673dabcad0a80ad908d853a266b8632c6a16544325edddaeee90ee",
+    "galaxy_image_demo/common.py": "9a991bd3e8b80b47012475868051197834f9f40cad1457532f432d433745fb99",
+    "galaxy_image_demo/data.py": "c52f179f07a3db0b31b9af14ebf470ce82705e52e018de4b8496a836626d8f85",
+    "galaxy_image_demo/models.py": "d03d2db75a5383747331a1c856990c1e97e4175959f1a5e6bcb1af4c77fa9d3a",
+    "galaxy_image_demo/reporting.py": "e4db5668854d814bdf22554594e90a01221cd33ae09d6aaa5fcb677738f7302d",
+    "galaxy_image_demo/training.py": "475af1d4ac1ac02815f05f1f11171962db0c1a006c51599141f871873cb41f06"
+  }
+}

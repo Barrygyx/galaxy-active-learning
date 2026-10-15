@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+data/
+cache/
+outputs/
+*.h5
+*.pt
+
+*.pth
+*.ckpt
+*.safetensors
+*.npz
+*.zip
+.env
+.env.*
+Galaxy10-master/

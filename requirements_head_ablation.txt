@@ -1,0 +1,2 @@
+# Reuse existing numpy, torch, matplotlib and threadpoolctl. Add only if needed.
+scikit-learn>=1.5,<2

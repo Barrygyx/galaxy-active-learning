@@ -1,0 +1,16 @@
+{
+  "synthetic_fixture": true,
+  "no_research_scores": true,
+  "models_per_seed": 4,
+  "seeds": [
+    42,
+    43
+  ],
+  "model_files_reused_unchanged": 16,
+  "original_package_unchanged": true,
+  "test_evaluated": false,
+  "n_seeds": 2,
+  "metrics_reconciled_to_confusions": true,
+  "model_artifact_hashes_verified": true,
+  "train_validation_disjoint": true
+}
