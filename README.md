@@ -85,7 +85,7 @@ $$
 The predicted class is:
 
 $$
-\hat{y}(x)=\operatorname*{arg\,max}_{c}\;\bar{p}(c\mid x)
+\hat{y}(x) = \arg\max_c \bar{p}(c \mid x)
 $$
 
 Ensemble learning combines predictions from multiple classifiers and can benefit from differences in their errors, as discussed by Dietterich⁸. Models with different architectures can make different mistakes. A strong prediction from one model may compensate for a weaker or incorrect prediction from another. Averaging probabilities also retains information about each model's confidence that a simple majority vote discards.
