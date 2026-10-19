@@ -1,499 +1,266 @@
-# Label-Efficient Galaxy Morphology Classification: Active Learning, Representation Adaptation, and Rare-Class Recognition
+# Galaxy Morphology Classification Under Limited Labeling Budgets
+
+### A comparative study of transfer learning, CNN fine-tuning, and probability ensembling on Galaxy10 DECaLS
+
+**Research question.** *How effectively can pretrained convolutional neural networks classify galaxy morphology with a limited labeling budget, and why does performance vary substantially between morphological classes?*
+
+**Headline result:** An equal-weight ensemble of three pretrained CNNs reaches **75.41% held-out test accuracy** and **0.7238 macro-F1** using **2,000 labeled training images per run**. Across three random seeds, the ensemble improves test macro-F1 over the strongest individual architecture (EfficientNet-B0) and shows little aggregate degradation relative to validation. Class-level analysis reveals a striking contrast: **Class 4 achieves F1 = 0.637**, despite having only 50 test examples, whereas **Class 0 achieves F1 = 0.351** with 157 test examples. This contrast motivates an investigation of morphological ambiguity, visual consistency, and class overlap rather than class frequency alone.
+
+> **Scope.** This repository includes an earlier active-learning study and a later, separate, fixed-budget CNN comparison. The **75.41% result is from the CNN ensemble experiment**, not from an active-learning sampling strategy. The label budget is shared *within each seed*: ensemble members train on the same 2,000 labeled examples, not three disjoint sets of 2,000.
+
+---
 
 ## Abstract
 
-This project investigates whether combining prediction uncertainty with sample diversity can reduce the annotation requirements of galaxy morphology classification while preserving recognition of rare classes. Using Galaxy10 DECaLS, we first construct an audited dataset and fixed evaluation split, then establish an active learning baseline using frozen ImageNet features. Initial experiments reveal limited overall performance and trade-offs between rare-class improvement and other morphology categories. These findings motivate a second stage focused on the reliability of the underlying image classifier.
-
-Following conservative cleaning, 17,615 images are retained from the original 17,736-image dataset. A matched-budget comparison using 2,000 randomly selected training images and three seeds identifies EfficientNet-B0 as the strongest individual model, achieving **74.55% mean validation accuracy** and **0.7151 ± 0.0165 macro-F1**. A fixed three-model ensemble achieves **75.66% accuracy** and **0.7255 ± 0.0070 macro-F1**. EfficientNet recognizes 30–31 of the 50 rare-class validation images across seeds.
-
-The current findings support the feasibility of the fine-tuning approach and provide a stronger foundation for subsequent acquisition experiments. They do not yet establish annotation savings from active learning. The remaining research task is to compare acquisition strategies using the selected CNN under matched labeling budgets and training protocols.
+Galaxy morphology classification is challenging when manually labeled images are limited, particularly when categories differ in visual distinctiveness and prevalence. This study evaluates the effectiveness of transfer learning under a controlled **2,000-image training-label budget** using the Galaxy10 DECaLS dataset. We compare a frozen ResNet18 feature extractor with partially fine-tuned ResNet18, fully fine-tuned MobileNetV3-Small, and fully fine-tuned EfficientNet-B0. We also construct an equal-weight probability ensemble from the three fine-tuned architectures. Evaluation uses a fixed, previously prepared train/validation/test split, three independent training-subset seeds, validation-guided checkpoint selection, and a held-out test set of 2,642 images. The ensemble achieves **75.41% ± 1.18% test accuracy** and **0.7238 ± 0.0078 macro-F1** (mean ± standard deviation across seeds), exceeding EfficientNet-B0 by **1.50 percentage points** in accuracy and **0.0186** in macro-F1. Per-class and visual error analyses show that the ensemble performs unevenly across classes: Class 0 is frequently confused with Classes 7 and 3, while many correctly classified Class 4 examples share a visually elongated appearance. These observations suggest that label efficiency depends not only on the number of labeled examples but also on the discriminability and consistency of class-defining visual features. This is a controlled project-level comparison, not a claim of state-of-the-art performance or a causal test of morphology-related difficulty.
 
 ## 1. Introduction
 
-Galaxy morphology classification provides a setting in which machine learning performance must be considered alongside annotation requirements and class-specific reliability. The task involves assigning galaxy images to categories that describe properties such as smoothness, spiral structure, viewing orientation, and signs of disturbance or merging.
+Galaxy morphology provides a visual description of galactic structure and is relevant to studying galaxy formation and evolution. Automated classification can scale morphological analysis beyond what is practical through manual labeling alone, but labeled astronomical images are costly to obtain and may contain visually ambiguous cases. Transfer learning offers a practical approach: start from representations learned on large image collections and adapt them to the target astronomical domain using fewer labeled examples.
 
-A model can achieve a reasonable overall accuracy while still failing on an infrequent morphology. This is especially relevant when the training distribution is imbalanced: errors on a rare category contribute relatively little to frequency-weighted accuracy, even when that category is a central scientific interest. An annotation strategy that improves aggregate performance may therefore provide limited benefit to rare-class recognition.
+This project addresses two questions:
 
-Active learning addresses the choice of which images should be labeled next. Rather than selecting every new training example uniformly at random, a model can prioritize images that appear uncertain, poorly represented, or otherwise informative. However, useful acquisition depends on the underlying classifier and its representation. If the representation does not distinguish the relevant morphology, uncertainty and feature-space coverage may fail to identify the examples that would improve the task.
+1. **Label-budget effectiveness:** How well do pretrained CNNs and a simple ensemble perform when each training run is restricted to 2,000 labeled galaxy images?
+2. **Class-level heterogeneity:** Why can a class with relatively few examples be easier to recognize than a class with more examples, and what do systematic misclassifications reveal about the model's limitations?
 
-This project consequently examines two connected questions. The first concerns acquisition: can uncertainty and diversity improve the use of a limited labeling budget? The second concerns the model supporting acquisition: can a classifier learn sufficiently informative and repeatable morphology predictions for such a comparison to be meaningful?
+The study compares model architectures under a common budget and then investigates errors using per-class metrics, prediction probabilities, confusion patterns, and original galaxy images.
 
-The completed experiments address data preparation, an initial frozen-feature acquisition baseline, and the selection of a stronger image-training scheme. The final active learning comparison with the selected fine-tuned model remains the next stage.
+## 2. Dataset and experimental design
 
-## 2. Research Question and Study Objectives
+### 2.1 Galaxy10 DECaLS and data preparation
 
-The primary research question is:
+- **Dataset:** Galaxy10 DECaLS; ten morphological class IDs (`0`–`9`).
+- **Cleaned dataset:** 17,615 retained images after the project's cleaning and duplicate/group checks.
+- **Fixed split:** 12,330 training-pool images; 2,643 validation images; **2,642 held-out test images**.
+- **Training budget:** **2,000 distinct labeled training images per seed**, sampled from the fixed training pool. This is approximately **16.2% of the training pool**.
+- **Random seeds:** `42`, `43`, and `44`. The training subset changes with seed; the held-out test images do not.
+- **Image processing:** RGB images resized to **128 × 128** with bilinear antialiasing and scaled to `[0, 1]`. CNN inputs are normalized with ImageNet channel statistics in the model forward pass.
+- **Augmentation:** random quarter-turn rotations and horizontal/vertical flips for fine-tuned models during training; no stochastic augmentation during test inference.
 
-> Can active learning that combines predictive uncertainty and sample diversity reduce the number of labeled galaxy images needed to reach a target classification performance while preserving recognition of rare morphology classes?
+The prepared split is reused rather than regenerated. Training and checkpoint selection do not use held-out test labels. The experiment uses an **800-image stratified validation monitor** for early stopping and retains the full validation set for model assessment.
 
-The study evaluates this question through three objectives.
+> **Important distinction:** The 157 Class 0 images and 50 Class 4 images discussed below are **test-set supports**, not counts of labeled training images. They describe evaluation prevalence; they do not establish that the model trained on 157 versus 50 examples.
 
-**Overall classification performance.** Acquisition strategies should be compared at the same training-label budgets using macro-F1 learning curves, with accuracy reported as a complementary measure.
+### 2.2 Evaluation protocol
 
-**Rare-class preservation.** Improvements in overall performance should be examined alongside precision, recall, and F1 for the prespecified rare category: class 4, cigar-shaped smooth galaxies.
+All models within a seed use the same 2,000-image labeled subset. Models are selected by validation-monitor macro-F1, with cross-entropy used to break ties. The reported final test metrics are calculated once from saved best checkpoints. The three-seed standard deviations describe variability across training runs and labeled-subset selections; they are **not confidence intervals from three independent test sets**.
 
-**Repeatability and fair comparison.** Strategies should share the same initial labeled set within a seed, operate on the same training pool, and use consistent model-training and evaluation rules.
+**Primary metric:** macro-F1, which weights all ten classes equally and is more informative than accuracy alone when class frequencies and difficulty vary. **Secondary metrics:** accuracy, per-class precision/recall/F1, cross-entropy, and confusion matrices.
 
-The working hypothesis is that uncertainty and diversity provide complementary information. Uncertainty can identify images near the current model’s decision boundaries, while diversity can reduce redundancy within a query batch and improve coverage of the available feature space. Their combination may therefore provide a more useful batch than either criterion alone.
+## 3. Methodology
 
-This hypothesis is not assumed to hold. Uncertainty can emphasize ambiguous examples, and diversity can emphasize visual differences that are not useful for the classification target. A hybrid strategy may also improve one category at the expense of another. These possibilities are part of the evaluation.
+### 3.1 Compared CNN configurations
 
-## 3. Dataset and Data Curation
+| Configuration | Backbone | Training strategy | Augmentation |
+|---|---|---|---|
+| Frozen ResNet18 | ResNet18 | Freeze backbone; train classification head | No |
+| Partial ResNet18 | ResNet18 | Fine-tune later backbone blocks and head | Yes |
+| MobileNetV3-Small | MobileNetV3-Small | Fine-tune backbone and head | Yes |
+| EfficientNet-B0 | EfficientNet-B0 | Fine-tune backbone and head | Yes |
 
-### 3.1 Galaxy10 DECaLS
+The pretrained architectures start from ImageNet weights. Each model uses a ten-class classification head. The pipeline includes training-subset-based feature standardization, AdamW optimization, warm-up for applicable fine-tuned models, and early stopping on validation-monitor macro-F1. The common comparison runner uses a maximum of **30 epochs**, **patience 6**, **minimum 8 epochs**, and **2 warm-up epochs** (subject to its saved run protocol).
 
-The project uses [Galaxy10 DECaLS](https://astronn.readthedocs.io/en/latest/galaxy10.html), containing **17,736 color images** with dimensions **256 × 256 × 3** across ten morphology classes.
+### 3.2 Equal-weight ensemble
 
-| Class | Morphology | Original count |
-|---|---|---:|
-| 0 | Disturbed galaxies | 1,081 |
-| 1 | Merging galaxies | 1,853 |
-| 2 | Round smooth galaxies | 2,645 |
-| 3 | In-between round smooth galaxies | 2,027 |
-| 4 | Cigar-shaped smooth galaxies | 334 |
-| 5 | Barred spiral galaxies | 2,043 |
-| 6 | Unbarred tight spiral galaxies | 1,829 |
-| 7 | Unbarred loose spiral galaxies | 2,628 |
-| 8 | Edge-on galaxies without bulge | 1,423 |
-| 9 | Edge-on galaxies with bulge | 1,873 |
+The final ensemble combines the **partially fine-tuned ResNet18**, **MobileNetV3-Small**, and **EfficientNet-B0**. Given the predicted class-probability vector from member model \(m\), the ensemble prediction is
 
-The dataset combines imaging from the DESI Legacy Imaging Surveys with morphology labels derived from Galaxy Zoo classifications.
+\[
+\bar{p}(y=c\mid x)=\frac{1}{3}\sum_{m=1}^{3}p_m(y=c\mid x),
+\qquad \hat{y}(x)=\arg\max_c\bar{p}(y=c\mid x).
+\]
 
-The HDF5 includes images, class labels, and astronomical metadata. The current classifiers use the images as predictors and the morphology labels as targets. Metadata such as redshift and sky coordinates is not included as a model predictor.
+Ensemble weights are fixed at one third each: **no test-set fitting or weight tuning** is performed. Ensemble members are trained on the **same labeled subset within a seed**, so combining them does not require additional distinct labeled images. It does, however, increase model training and inference cost.
 
-### 3.2 Why Cleaning Precedes Model Comparison
+### 3.3 Separate earlier active-learning investigation
 
-Duplicate or linked observations can compromise both classification evaluation and annotation-budget accounting. If nearly identical records appear in training and validation, evaluation may reward recognition of repeated observations. If repeated records are queried separately, the apparent labeling budget may also overstate the amount of distinct information acquired.
+The repository also contains a separate active-learning investigation using frozen ResNet18 features and a lightweight classifier. At a 2,000-label budget, its held-out macro-F1 results were approximately:
 
-Conflicting labels within a linked group create a different problem: the same or conservatively associated image content may be assigned incompatible targets. Automatically selecting one label would introduce an additional, unsupported labeling decision.
+| Sampling strategy | Test macro-F1 (mean ± SD) |
+|---|---:|
+| Hybrid | 0.4791 ± 0.0032 |
+| Diversity | 0.4791 ± 0.0114 |
+| Random | 0.4675 ± 0.0155 |
+| Uncertainty | 0.4651 ± 0.0064 |
 
-The preparation procedure therefore prioritizes traceability and conservative handling of ambiguity.
+These results document the broader project's exploration of label selection. **They are not a controlled head-to-head comparison with the later fine-tuned CNN ensemble**: representation, classifier, and training protocol differ. Consequently, the present study does not claim that active learning caused the ensemble's improvement. See [`README_ACTIVE_LEARNING.md`](README_ACTIVE_LEARNING.md) for that experiment.
 
-### 3.3 Cleaning Procedure
+## 4. Experimental results
 
-The raw HDF5 is opened read-only. The preparation process:
+### 4.1 Held-out test performance
 
-1. Checks image structure, label alignment, and the expected ten-class label range.
-2. Scans images for nonfinite pixel values.
-3. Identifies byte-identical images using image hashes.
-4. Links observations with exactly equal finite RA/Dec coordinate pairs.
-5. Joins these relationships transitively.
-6. Excludes entire linked groups containing conflicting labels.
-7. Retains one valid representative from a consistent linked group when applicable.
-8. Preserves original HDF5 row indices in all saved audit records.
+The table reports **mean ± sample standard deviation across seeds 42, 43, and 44**, evaluated on the same 2,642 held-out test images per seed.
 
-Missing metadata alone does not exclude an otherwise valid image. In particular, nonfinite redshift values are recorded, but redshift is not required by the current image classifier.
+| Model | Test accuracy | Test macro-F1 |
+|---|---:|---:|
+| Frozen ResNet18 | 47.59% ± 0.57% | 0.4280 ± 0.0127 |
+| Partial ResNet18 | 70.73% ± 0.71% | 0.6796 ± 0.0068 |
+| MobileNetV3-Small | 65.35% ± 0.94% | 0.6116 ± 0.0023 |
+| EfficientNet-B0 | 73.91% ± 1.20% | 0.7052 ± 0.0096 |
+| **Equal-weight ensemble (3)** | **75.41% ± 1.18%** | **0.7238 ± 0.0078** |
 
-The completed preparation excludes **121 images associated with conflicting labels in linked groups**, retaining **17,615 images**.
+**Interpretation.** Fine-tuning substantially outperforms the frozen-feature ResNet18 baseline under this experimental setup. EfficientNet-B0 is the strongest single model, but the ensemble improves upon it by **1.50 percentage points** in test accuracy and **0.0186 absolute macro-F1** (approximately **2.6% relative macro-F1 improvement**). These improvements are descriptive; no formal significance claim is made.
 
-This procedure addresses known exact matches and conservative coordinate links. It does not establish that every near-duplicate, neighboring object, or related astronomical observation has been identified.
+### 4.2 Per-seed ensemble consistency
 
-### 3.4 Fixed Partition
+| Seed | Ensemble test accuracy | Ensemble test macro-F1 |
+|---|---:|---:|
+| 42 | 76.31% | 0.7302 |
+| 43 | 75.85% | 0.7262 |
+| 44 | 74.07% | 0.7150 |
+| **Mean ± SD** | **75.41% ± 1.18%** | **0.7238 ± 0.0078** |
 
-The retained dataset is divided into a training pool, validation set, and test set using a fixed, approximately 70/15/15 class-stratified allocation.
+The ensemble exceeds EfficientNet-B0 in test accuracy and macro-F1 for each of the three seeds. A comparison of the recorded aggregate validation and test results also shows little degradation: **ensemble validation accuracy ≈ 75.66% versus test accuracy 75.41%**, and **validation macro-F1 ≈ 0.7255 versus test macro-F1 0.7238**. This supports stable performance on this held-out split, but does not rule out all forms of overfitting or distribution shift.
 
-| Partition | Images | Purpose |
-|---|---:|---|
-| Training pool | 12,330 | Source of training and acquisition candidates |
-| Validation | 2,643 | Early stopping and model development |
-| Test | 2,642 | Separate evaluation partition |
+### 4.3 Per-class performance
 
-Class 4 contains 333 retained images, including 50 validation images. All ten classes remain in every evaluation.
+Per-class metrics below are the **mean of each seed's ensemble metrics**; `support` is the number of unique test images in that class, not the sum across seeds.
 
-The fixed `splits.csv` fingerprint is:
+| Class ID | Test support | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|
+| **0** | 157 | 0.479 | 0.278 | **0.351** |
+| 1 | 276 | 0.786 | 0.814 | 0.797 |
+| 2 | 395 | 0.863 | 0.904 | 0.883 |
+| 3 | 303 | 0.802 | 0.854 | 0.827 |
+| **4** | **50** | **0.672** | **0.613** | **0.637** |
+| 5 | 306 | 0.815 | 0.687 | 0.745 |
+| 6 | 273 | 0.696 | 0.608 | 0.648 |
+| 7 | 389 | 0.571 | 0.686 | 0.621 |
+| 8 | 213 | 0.839 | 0.890 | 0.864 |
+| 9 | 280 | 0.859 | 0.874 | 0.866 |
+
+The large spread in F1 scores shows why overall accuracy alone is insufficient. Class 2 achieves an F1 of **0.883**, while Class 0 reaches only **0.351**. Class 4 is noteworthy: despite having the smallest test support, its F1 exceeds that of Class 0 and Class 7.
+
+### 4.4 Where the ensemble helps
+
+Comparing per-class F1 against EfficientNet-B0:
+
+| Class | EfficientNet-B0 F1 | Ensemble F1 | Change |
+|---|---:|---:|---:|
+| 0 | 0.3601 | 0.3510 | −0.0091 |
+| 1 | 0.7727 | 0.7966 | +0.0239 |
+| 2 | 0.8686 | 0.8826 | +0.0140 |
+| 3 | 0.8288 | 0.8267 | −0.0021 |
+| **4** | **0.5374** | **0.6368** | **+0.0994** |
+| 5 | 0.7461 | 0.7451 | −0.0010 |
+| 6 | 0.6255 | 0.6477 | +0.0221 |
+| 7 | 0.5947 | 0.6210 | +0.0262 |
+| 8 | 0.8584 | 0.8640 | +0.0056 |
+| 9 | 0.8598 | 0.8662 | +0.0065 |
+
+The largest per-class improvement occurs in **Class 4 (+0.0994 F1)**, corresponding to roughly **18.5% relative improvement** over EfficientNet-B0. However, this class contains only 50 unique test images, so the estimate should be interpreted cautiously. The ensemble is not uniformly better: Class 0 declines slightly.
+
+A paired comparison of EfficientNet-B0 and ensemble predictions over the three seeds found **468 cases in which the ensemble corrected an EfficientNet error** versus **349 cases in which it introduced an error**, for a net gain of **119 correct predictions across seed-image evaluations**. Because the same test images are evaluated in three seeds, these counts are not 468 or 349 independent images.
+
+## 5. Error analysis and discussion
+
+### 5.1 Why does Class 0 perform worse than Class 4?
+
+Class 0 has **157 test examples** versus **50** for Class 4, yet its ensemble recall is **0.278** versus **0.613** and its F1 is **0.351** versus **0.637**. More evaluation examples do not imply a class is easier to recognize, and evaluation support alone does not measure the number of training examples seen by the model.
+
+Visual inspection of original test images provides a plausible explanation. **Class 0 examples exhibit a heterogeneous range of appearances**, including compact, diffuse, irregular, and relatively smooth-looking structures. Some resemble images assigned to other classes. By contrast, **many correctly classified Class 4 examples share a distinctly elongated, high-aspect-ratio appearance**. This visual regularity may provide a more consistent discriminative cue even under a limited labeling budget.
+
+This is an **interpretation supported by example images and confusion patterns**, not a causal proof. We do not claim that the official Class 0 definition is literally “blurry,” nor that low image quality is the sole explanation. Morphological ambiguity, overlap between class definitions, image resolution, and variation within a class may all contribute. Official dataset descriptions should be consulted before attributing a specific semantic meaning to a numeric class ID.
+
+### 5.2 Dominant confusion patterns
+
+Aggregating the three ensemble confusion matrices, the most frequent error directions include:
+
+| True → predicted | Count across three seeds |
+|---|---:|
+| 6 → 7 | 202 |
+| 5 → 7 | 161 |
+| 0 → 7 | 131 |
+| 7 → 6 | 108 |
+| 7 → 5 | 82 |
+| 7 → 0 | 68 |
+| 0 → 3 | 63 |
+
+**Class 7 is a frequent destination for incorrect predictions**, helping explain its moderate recall (**0.686**) but lower precision (**0.571**). For Class 0, confusion with Classes 7 and 3 is particularly pronounced. This is consistent with a poorly separated decision region rather than a single isolated failure mode.
+
+### 5.3 Qualitative visual inspection
+
+Visual grids compare correctly classified Class 0 images, Class 0 images misclassified as Classes 7 and 3, and correctly and incorrectly classified Class 4 images. The Class 0 error examples include both compact/smooth and more diffuse appearances; Class 4 correct examples frequently display elongated structure. Class 4 errors also show that elongation alone is not sufficient for reliable recognition.
+
+The figure files are kept in [`results/visual_error_analysis/`](results/visual_error_analysis/) **when uploaded with this report**:
+
+| Visual sample | File |
+|---|---|
+| Class 0 → Class 7 | [`class0_as7.jpg`](results/visual_error_analysis/class0_as7.jpg) |
+| Class 0 correctly classified | [`class0_correct.jpg`](results/visual_error_analysis/class0_correct.jpg) |
+| Class 0 → Class 3 | [`class0_as3.jpg`](results/visual_error_analysis/class0_as3.jpg) |
+| Class 4 correctly classified | [`class4_correct.jpg`](results/visual_error_analysis/class4_correct.jpg) |
+| Class 4 misclassified | [`class4_wrong.jpg`](results/visual_error_analysis/class4_wrong.jpg) |
+
+**Representative comparison** (visible once the accompanying image files are committed):
+
+![Class 0 examples misclassified as Class 7](results/visual_error_analysis/class0_as7.jpg)
+
+![Correctly classified Class 4 examples](results/visual_error_analysis/class4_correct.jpg)
+
+The grids are qualitative illustrations, not representative samples for estimating class-level effect sizes.
+
+## 6. Limitations
+
+1. **Single dataset and fixed test split.** Results demonstrate held-out performance on Galaxy10 DECaLS, not necessarily transfer to different telescopes, surveys, or labeling schemes.
+2. **Small evaluation support for Class 4.** Its 50 test examples make per-class estimates more sensitive to a few changed predictions.
+3. **Only three training seeds.** The reported standard deviations characterize these runs; they do not establish statistical significance or broad robustness.
+4. **Model complexity versus labeling cost.** The ensemble reuses the same labels but requires training and serving three CNNs; label efficiency is not equivalent to computational efficiency.
+5. **Qualitative morphological interpretation.** The visual analysis suggests class heterogeneity and overlap but does not formally quantify morphology or verify whether specific examples are ambiguously labeled.
+6. **No full budget-performance curve for the final CNNs.** This experiment demonstrates performance *at* 2,000 labels, but cannot establish the minimum necessary budget or the optimal annotation strategy.
+7. **Model-selection context.** Architecture exploration and validation comparisons took place during development. The held-out test supports final reporting, but should not be reused to tune future models without establishing a new untouched evaluation set.
+
+## 7. Conclusion
+
+Under a fixed **2,000-label training budget**, pretrained and fine-tuned CNNs provide a practical approach to Galaxy10 morphology classification. The equal-weight ensemble reaches **75.41% test accuracy** and **0.7238 macro-F1**, improving upon the strongest single model without requiring additional distinct training labels. The close validation and test aggregates are encouraging, while the substantial per-class differences highlight a central limitation: **recognition difficulty depends on class separability and visual consistency, not merely on class prevalence**. In particular, Class 4 performs comparatively well despite low test support, whereas Class 0 remains difficult and is frequently confused with Classes 7 and 3. Future work could investigate class-aware calibration, targeted data collection, or more precise morphological features, ideally using a new untouched test split for subsequent model changes.
+
+## 8. Repository guide and reproducibility
+
+The repository contains multiple experimental phases. The most relevant components include:
 
 ```text
-39c4d6ecc7c0d823bafece1a0858b908d495a86e5dff3692c981808c705f6703
+galaxy_al/                  # Earlier active-learning experiments
+galaxy_image_demo/          # Earlier image-model pilot code
+image_budget_runner/        # Isolated fixed-budget CNN training and evaluation engine
+run_image_2000.py           # Three-seed fixed-budget CNN comparison runner
+summarize_image_2000.py     # Cross-seed aggregation (when present)
+evaluate_final_test.py      # Held-out test inference from saved checkpoints (new)
+visual_error_analysis.py    # Qualitative inspection of saved test predictions (new)
+README_ACTIVE_LEARNING.md   # Earlier active-learning investigation
+README_IMAGE_2000.md       # Detailed fixed-budget experiment notes
+results/
+  visual_error_analysis/    # Selected qualitative grids (new)
 ```
 
-Keeping this split fixed allows subsequent model comparisons to share the same evaluation population.
-
-## 4. Methodology
-
-### 4.1 Pool-Based Active Learning Formulation
-
-Let \(L_t\) denote the labeled training set at acquisition round \(t\), and let \(U_t\) denote the remaining unlabeled training pool.
-
-A classifier is trained using the labels in \(L_t\). An acquisition rule selects a batch \(Q_t \subseteq U_t\), after which the selected labels are revealed:
-
-\[
-L_{t+1}=L_t\cup Q_t,
-\qquad
-U_{t+1}=U_t\setminus Q_t.
-\]
-
-The cumulative training-label budget includes the initial labeled set and all subsequent queries.
-
-Because this is a benchmark simulation, ground-truth labels exist in the dataset files. Acquisition routines do not receive those labels as selection inputs. Labels enter model training only after the corresponding examples have been selected and revealed.
-
-Unlabeled images may be encoded or assigned predictive probabilities without revealing their target classes.
-
-### 4.2 Acquisition Strategies in the Initial Baseline
-
-The completed frozen-feature baseline compares four strategies.
-
-**Random sampling.** Images are selected uniformly without replacement from the remaining pool. This establishes the reference performance achievable without model-directed acquisition.
-
-**Uncertainty sampling.** For each available image, the classifier predicts a distribution over ten classes. Uncertainty is measured using predictive entropy:
-
-\[
-H(x)=-\sum_{c=1}^{10}p(c\mid x)\log p(c\mid x).
-\]
-
-The highest-entropy images are selected. This prioritizes examples for which the current classifier distributes probability across multiple alternatives.
-
-**Diversity sampling.** Image features are L2-normalized, and greedy farthest-first selection expands coverage relative to the labeled set. At each selection step, the next image maximizes its distance to the nearest existing center:
-
-\[
-x^{*}
-=
-\arg\max_{x\in U_t}
-\min_{z\in L_t\cup Q_t}
-\|\tilde f(x)-\tilde f(z)\|_2^2.
-\]
-
-The selected query batch is incorporated into the center set as the batch is constructed, reducing redundancy among new selections.
-
-**Hybrid sampling.** Images are first ranked by predictive entropy. The highest-entropy candidates form a shortlist, and farthest-first selection chooses a diverse batch from that shortlist. The historical implementation uses a shortlist of up to five times the query-batch size.
-
-The shortlist multiplier is a fixed design choice, not evidence of an optimal combination. The strategy combines existing acquisition ideas rather than introducing a new acquisition algorithm.
-
-### 4.3 Initial Frozen-Feature Model
-
-The first active learning experiment uses an ImageNet-pretrained ResNet18 with frozen convolutional parameters.
-
-Images are resized to 224 × 224 using the full field of view. The final classification layer is removed, producing 512-dimensional features that can be cached and reused across rounds.
-
-At each annotation budget, a fresh MLP classifier is trained:
-
-\[
-512 \rightarrow 128
-\rightarrow \operatorname{ReLU}
-\rightarrow \operatorname{Dropout}(0.1)
-\rightarrow 10.
-\]
-
-Feature standardization is fitted only on the currently labeled training examples.
-
-This design makes repeated acquisition experiments computationally practical and keeps the representation fixed while comparing selection rules. Its limitation is that the encoder cannot adapt to the target morphology task.
-
-The historical acquisition protocol uses 200 initial labels, query batches of 200, and a maximum of 2,000 labels. Strategies share the initial labeled set within each seed.
-
-### 4.4 Model Diagnostics and Representation Adaptation
-
-Limited baseline performance does not identify its cause on its own. Potential explanations include insufficient training labels, limited target-domain representation, classifier optimization, and difficult or ambiguous morphology boundaries.
-
-The diagnostic stage therefore compares training and validation performance and examines alternative classifiers on the same frozen features.
-
-A frozen-feature MLP trained with all 12,330 training-pool labels achieves a mean validation macro-F1 of **0.5545**. A tuned linear classifier achieves **0.5426** on the same validation set. These results motivate investigating the representation and image-training scheme rather than relying only on additional changes to the classifier head.
-
-They do not prove that the frozen encoder is the sole limitation. The subsequent image experiments change several aspects of training and should be interpreted as comparisons of complete training schemes.
-
-### 4.5 CNN Fine-Tuning Design
-
-The current comparison includes:
-
-| Model | Parameters updated |
-|---|---|
-| Frozen ResNet18 | Classifier head only |
-| Partial ResNet18 | `layer3`, `layer4`, and classifier head |
-| EfficientNet-B0 | Backbone and classifier head |
-| MobileNetV3 Small | Backbone and classifier head |
-
-All models use official ImageNet initialization and a classifier head with 128 hidden units, ReLU, dropout 0.1, and ten output classes.
-
-Partial fine-tuning provides an intermediate design: later layers adapt to morphology while earlier convolutional blocks remain fixed. EfficientNet and MobileNet provide alternative representations and computational profiles.
-
-The comparison is intended to select a practical training scheme for subsequent acquisition experiments. It is not an architecture-only ablation with every training component held identical.
-
-### 4.6 Preprocessing and Augmentation
-
-The current image comparison resizes the full image to **128 × 128**. Full-frame resizing avoids deliberately cropping away the outer image region, while the reduced resolution makes CPU-based experimentation more practical.
-
-Fine-tuned models use independent quarter-turn rotations and horizontal/vertical flips during training. These transformations treat image orientation as a nuisance factor and encourage the classifier to use morphology rather than a preferred orientation.
-
-Validation images are not augmented. Random crops and color perturbations are not used in the current comparison.
-
-The resolution remains a limitation: resizing can suppress small structures, including subtle spiral or bar features. The experiments do not isolate the effect of resolution.
-
-### 4.7 Optimization and Checkpoint Selection
-
-The current training protocol uses AdamW with:
-
-- Classifier-head learning rate: 0.001.
-- Pretrained-backbone learning rate: 0.0001.
-- Weight decay: 0.0001.
-- Batch size: 32.
-- Gradient norm limit: 5.
-- Two classifier-head warm-up epochs.
-- Maximum 30 epochs and minimum training length of 8 epochs.
-
-Pretrained BatchNorm running statistics remain fixed. Initial-encoder feature-normalization statistics are fitted using the labeled training subset and then held fixed during training.
-
-Early stopping monitors macro-F1 on a stratified subset of 800 validation images, with patience 6 and a minimum improvement of 0.0001. The highest observed monitor-F1 checkpoint is restored; cross-entropy breaks ties.
-
-The final training and full-validation metrics are calculated using that restored model.
-
-## 5. Experimental Design
-
-### 5.1 Matched Training-Label Budget
-
-The principal CNN comparison uses **2,000 uniformly selected training images per seed**.
-
-Within a seed, every model receives exactly the same training images. The subset is not constructed by examining labels to ensure rare-class coverage. This preserves the limited-label interpretation of the experiment.
-
-Seeds 42, 43, and 44 vary the training subset, model randomness, and validation-monitor selection. They share the same complete validation partition.
-
-The resulting variation therefore describes repeatability of the overall development procedure. It does not isolate initialization variance or provide three independent evaluation datasets.
-
-### 5.2 Evaluation Metrics
-
-Accuracy is reported for interpretability, but macro-F1 is the main classification measure because each class contributes equally:
-
-\[
-F1_c=\frac{2P_cR_c}{P_c+R_c},
-\qquad
-\operatorname{MacroF1}
-=
-\frac{1}{10}\sum_{c=1}^{10}F1_c.
-\]
-
-Precision and recall remain important for class 4. High recall obtained by predicting the rare class too frequently would not provide the same evidence as balanced precision and recall.
-
-The analysis consequently considers:
-
-- Overall accuracy and macro-F1.
-- Class 4 precision, recall, and F1.
-- Class 5 performance and all-class outcomes.
-- Training–validation gaps.
-- Best checkpoint and stopping behavior.
-- Variation across seeds.
-- Computational requirements.
-
-### 5.3 Ensemble Reference
-
-The ensemble averages class probabilities from partial ResNet18, EfficientNet, and MobileNet:
-
-\[
-p_{\mathrm{ensemble}}(c\mid x)
-=
-\frac{
-p_{\mathrm{ResNet}}(c\mid x)
-+
-p_{\mathrm{EfficientNet}}(c\mid x)
-+
-p_{\mathrm{MobileNet}}(c\mid x)
-}{3}.
-\]
-
-The weights are fixed and equal. No additional training labels are used, but three models must be trained and evaluated.
-
-The ensemble provides a performance reference and an indication of whether the candidate models make complementary errors. It is not an independent replication.
-
-## 6. Results
-
-### 6.1 Initial Acquisition Results Reveal a Class-Level Trade-Off
-
-In the historical frozen-feature experiment, hybrid sampling achieves a mean validation macro-F1 of **0.4883**, compared with **0.4802** for random sampling at 2,000 labels.
-
-The class-level comparison is less uniform:
-
-| Validation metric | Random | Hybrid |
-|---|---:|---:|
-| Overall macro-F1 | 0.4802 | 0.4883 |
-| Class 4 F1 | 0.2642 | 0.3691 |
-| Class 5 F1 | 0.4778 | 0.3869 |
-
-The hybrid result is consistent with improved recognition of the rare category in this experiment, but that improvement is accompanied by reduced class 5 performance.
-
-This demonstrates why an acquisition strategy should not be evaluated through one aggregate score or one selected category alone. The predeclared validation-performance targets were not established within the historical query budget, so this experiment did not demonstrate the intended target-based annotation savings.
-
-### 6.2 Small-Budget Image Pilot
-
-A subsequent pilot uses 512 training images and a maximum of six epochs. EfficientNet reaches **0.4822 validation macro-F1**, while the frozen ResNet18 baseline reaches **0.3617**.
-
-However, the training subset contains only six class 4 images. EfficientNet recognizes only one of the 50 class 4 validation images, and several other candidates fail to recognize the category.
-
-The pilot therefore establishes that learnable image representations are promising while also showing that overall gains do not automatically protect a rare class.
-
-The larger experiment increases the label budget, training allowance, and validation-monitor size together. Its improvement should not be interpreted as an isolated causal effect of additional labels.
-
-### 6.3 Three-Seed CNN Comparison
-
-The main image-model results use the complete 2,643-image validation set.
-
-| Model | Mean accuracy | Macro-F1, mean ± SD | Class 4 F1 | Class 4 recall | Class 5 F1 |
-|---|---:|---:|---:|---:|---:|
-| Frozen ResNet18 | 47.21% | 0.4265 ± 0.0057 | 0.1799 | 0.1400 | 0.4174 |
-| Partial ResNet18 | 70.66% | 0.6812 ± 0.0077 | 0.6414 | 0.6133 | 0.6339 |
-| **EfficientNet-B0** | **74.55%** | **0.7151 ± 0.0165** | **0.6396** | **0.6067** | **0.7037** |
-| MobileNetV3 Small | 65.94% | 0.6272 ± 0.0076 | 0.5306 | 0.5400 | 0.5541 |
-| **Equal-probability ensemble** | **75.66%** | **0.7255 ± 0.0070** | **0.6693** | **0.6400** | **0.7032** |
-
-EfficientNet is the strongest individual model in every seed. Its mean macro-F1 exceeds the current frozen ResNet baseline by approximately **0.2886**.
-
-This supports the selection of an adapted image-training scheme. Because augmentation and trainable parameters differ between schemes, the result does not isolate the contribution of backbone adaptation alone.
-
-![Three-seed model comparison](results/image_models_2000/figures/model_comparison.png)
-
-### 6.4 Repeatability and Rare-Class Recognition
-
-| Seed | EfficientNet accuracy | EfficientNet macro-F1 | Class 4 correct / 50 | Ensemble macro-F1 |
-|---|---:|---:|---:|---:|
-| 42 | 76.28% | 0.7328 | 30 / 50 | 0.7263 |
-| 43 | 74.23% | 0.7126 | 30 / 50 | 0.7320 |
-| 44 | 73.14% | 0.7000 | 31 / 50 | 0.7181 |
-
-EfficientNet’s class 4 recall is 60%, 60%, and 62%, despite the corresponding training subsets containing 36, 44, and 39 examples of that class. This provides encouraging evidence that the rare-class result is repeatable across the tested development runs.
-
-EfficientNet does not dominate every metric. Partial ResNet’s average class 4 F1 is **0.6414**, close to EfficientNet’s **0.6396**, despite its lower overall macro-F1. The choice of EfficientNet is therefore based on its stronger overall performance rather than a claim that it is uniformly superior for rare categories.
-
-### 6.5 Ensemble Benefits Are Modest and Not Uniform
-
-The ensemble improves average macro-F1 from **0.7151 to 0.7255** and reduces overall seed standard deviation from **0.0165 to 0.0070**.
-
-Its average class 4 F1 also improves, but the benefit varies across seeds. In seed 42, the ensemble has lower overall and class 4 F1 than EfficientNet alone.
-
-The ensemble is consequently useful as a reference, while its additional computation and nonuniform class-level benefit limit the case for using it as the default acquisition model.
-
-### 6.6 Remaining Errors and Overfitting
-
-The strongest model still performs unevenly across morphology categories.
-
-EfficientNet’s average validation F1 is approximately:
-
-| Class | Average F1 |
-|---|---:|
-| Disturbed galaxies | 0.3104 |
-| Round smooth galaxies | 0.9036 |
-| Cigar-shaped smooth galaxies | 0.6396 |
-| Unbarred loose spiral galaxies | 0.5876 |
-| Edge-on galaxies without bulge | 0.8663 |
-
-Class 0 remains substantially weaker than several common smooth and edge-on categories. This suggests that the remaining difficulty cannot be characterized solely as a rare-class frequency problem.
-
-EfficientNet’s mean training-minus-validation macro-F1 gap is approximately **0.2144**. Its selected epochs are 18, 20, and 11, with training stopping at epochs 24, 26, and 17.
-
-The curves show continued training improvement after validation performance becomes unstable or plateaus. Early stopping therefore remains useful, but the retained models still exhibit a meaningful generalization gap.
-
-![Training and validation curves, seed 42](results/image_models_2000/figures/training_curves_seed_42.png)
-
-Additional curves: [seed 43](results/image_models_2000/figures/training_curves_seed_43.png) and [seed 44](results/image_models_2000/figures/training_curves_seed_44.png).
-
-## 7. Discussion
-
-### 7.1 Model Quality Conditions the Acquisition Question
-
-The initial frozen-feature experiment and later CNN comparison address different parts of the study.
-
-The acquisition baseline examines how labels are selected under a fixed representation. The image comparison examines whether a more effective training scheme can support the next acquisition experiment.
-
-These stages should not be collapsed into a claim that fine-tuning itself demonstrates active learning benefit. Stronger randomly sampled training results establish a more credible baseline against which acquisition strategies must compete.
-
-### 7.2 Aggregate Improvement Does Not Guarantee Class Preservation
-
-The historical hybrid result improves class 4 while reducing class 5 performance. The CNN comparison also shows that the best overall single model is not uniquely best for class 4.
-
-These findings support the original decision to evaluate rare-class preservation explicitly. A useful acquisition policy must be assessed through the joint behavior of overall and class-specific metrics, rather than selecting whichever individual score is favorable.
-
-### 7.3 Classification and Uncertainty Quality Require Separate Evaluation
-
-The planned uncertainty strategy depends on predicted probabilities, not only the final predicted class.
-
-A model with strong macro-F1 may still assign unreliable confidence to some errors. The observed validation-loss behavior motivates checking probability quality before interpreting entropy as a reliable measure of acquisition value.
-
-The current metrics do not establish whether uncertainty-based selection will outperform random sampling. That remains an experimental question.
-
-### 7.4 Computation Is Part of the Design
-
-EfficientNet offers the strongest individual classification results, while MobileNet is substantially faster in the recorded CPU runs.
-
-Repeated acquisition rounds multiply training and pool-evaluation costs. The selected model must therefore be evaluated in terms of both annotation efficiency and computational feasibility.
-
-A small acquisition pilot is appropriate before expanding to every strategy and seed. The full comparison should retain consistent rules rather than allowing additional computation only for favored strategies.
-
-## 8. Limitations
-
-**Development-validation evaluation.** The current validation partition informs early stopping and model selection. Reported CNN scores are development results rather than independent final confirmation.
-
-**Evaluation history.** The earlier frozen-feature experiment evaluated the test partition. Later CNN development did not evaluate it, but the project must not describe it as never inspected during the entire research process.
-
-**Limited repeated runs.** Three seeds support descriptive repeatability analysis. They do not establish formal statistical significance, non-inferiority, or performance on independent datasets.
-
-**Small rare-class evaluation set.** Class 4 has 50 validation images. Each additional correct prediction changes recall by two percentage points, so small differences require caution.
-
-**Combined training changes.** Comparisons across development stages change multiple factors, including label budget, training duration, resolution, and monitor settings. They do not isolate each factor’s effect.
-
-**Residual data relationships.** Exact hashes and coordinate linkage do not detect every possible near-duplicate or related object. The split is not a dedicated cross-survey or spatial generalization evaluation.
-
-**Additional labeled resources.** The reported training-label budget excludes the fixed validation and test labels. ImageNet pretraining is also an external shared resource.
-
-**Remaining acquisition experiment.** Fine-tuned EfficientNet has not yet completed the planned active learning comparison. Annotation savings cannot be inferred from its current classification scores.
-
-## 9. Next Experimental Stage
-
-The next stage will hold the selected EfficientNet training scheme fixed and vary acquisition strategy.
-
-A proposed budget grid is **500, 1,000, 1,500, and 2,000 training labels**. Within each seed, random, uncertainty, diversity, and hybrid strategies will share the same initial labeled subset and evaluation data.
-
-The evaluation will examine:
-
-1. Macro-F1 learning curves and normalized learning-curve area.
-2. Class 4 precision, recall, and F1 across budgets.
-3. Performance across all ten morphology classes.
-4. The number and distribution of queried labels.
-5. Acquisition and training computation.
-6. Labels required to satisfy a prespecified overall-performance target and rare-class requirement.
-
-For a target performance \(\tau\), label savings can be defined using the observed budgets required by a strategy and the random baseline:
-
-\[
-\operatorname{Savings}(\tau)
-=
-1-
-\frac{B_{\mathrm{strategy}}(\tau)}
-{B_{\mathrm{random}}(\tau)}.
-\]
-
-This comparison is meaningful only when the relevant target and rare-class requirement are reached under the same evaluation rules. Unreached targets will be reported as unreached rather than extrapolated.
-
-The completed frozen-feature acquisition experiment is retained as an exploratory baseline. It will not be presented as the result of fine-tuned EfficientNet acquisition.
-
-## 10. Conclusion
-
-The completed experiments establish a reproducible data preparation procedure and identify a practical image-training scheme for limited-label galaxy morphology classification.
-
-Across three seeds, EfficientNet-B0 provides repeatable overall and rare-class validation performance using 2,000 randomly selected training images. The ensemble offers a modest average improvement at greater computational cost. Persistent class-level weaknesses and generalization gaps remain.
-
-These findings support proceeding with the active learning study. The main research claim—whether uncertainty and diversity reduce labeling requirements while preserving rare-class recognition—will be determined by the next matched-budget acquisition comparison.
-
-## Code and Result Navigation
-
-The current CNN comparison is launched with:
+**To reproduce the final test from existing trained checkpoints**, use the same prepared data, configuration, and saved campaign outputs, then run from the project root on Windows PowerShell:
 
 ```powershell
-.\.venv\Scripts\python.exe .\run_image_2000.py --seeds 42 43 44
+.\.venv\Scripts\python.exe evaluate_final_test.py --device cpu --batch-size 32 --threads 4
 ```
 
-Operational instructions are maintained separately in:
+**To regenerate the qualitative examples** from saved predictions and original images:
 
-- [Current image-model experiment](README_IMAGE_2000.md)
-- [Initial active learning baseline](README_ACTIVE_LEARNING.md)
-- [Model diagnostics](README_DIAGNOSTICS.md)
-- [Classifier-head comparisons](README_HEAD_ABLATION.md)
+```powershell
+.\.venv\Scripts\python.exe visual_error_analysis.py --seed 42 --examples 20
+```
 
-Published current results:
+These are **evaluation commands**, not training commands. The training comparison is managed separately by `run_image_2000.py`; refer to the saved campaign protocol and `README_IMAGE_2000.md` before attempting a fresh training run. Raw images and large model checkpoints are not required in Git history to read the report, and may be excluded from Git using `.gitignore`.
 
-- [Full report](results/image_models_2000/image_2000_report.md)
-- [Seed-level metrics](results/image_models_2000/metrics_by_seed.csv)
-- [Mean and standard deviation](results/image_models_2000/metrics_mean_std.csv)
-- [Per-class metrics](results/image_models_2000/per_class_metrics.csv)
-- [Class supports](results/image_models_2000/class_counts.csv)
+### Evaluation artifacts
 
-## Acknowledgments
+The final evaluation produces a report and machine-readable files in `outputs/final_test/comparison_.../`:
 
-The project uses [Galaxy10 DECaLS](https://astronn.readthedocs.io/en/latest/galaxy10.html), with source imaging from the [DESI Legacy Imaging Surveys](https://www.legacysurvey.org/) and morphology labels derived from [Galaxy Zoo](https://www.galaxyzoo.org/).
+- `test_report.md` — held-out test summary;
+- `per_seed_metrics.csv` — model performance for each seed;
+- `per_class_metrics.csv` — class-level precision, recall, F1, and support;
+- `predictions.csv` — per-image probabilities, labels, and predictions;
+- confusion matrix figures and `test_results.json` — diagnostic plots and provenance.
 
-Model implementations and official pretrained weights are provided through [PyTorch](https://pytorch.org/) and [torchvision](https://docs.pytorch.org/vision/stable/). Dataset construction code is available in the [Galaxy10 repository](https://github.com/henrysky/Galaxy10).
+For a lightweight public repository, commit the report, metric CSVs, and selected figures. Consider the size and licensing implications before publishing raw images, full prediction tables, datasets, or pretrained weights.
 
-This project reports an empirical application study and reproducible experimental framework. It does not claim a new CNN architecture, a previously unknown acquisition algorithm, or a state-of-the-art benchmark result.
+## Data attribution
+
+This project uses **Galaxy10 DECaLS** and pretrained torchvision models. Please follow the dataset authors' citation and licensing requirements when redistributing images or presenting the work publicly. The numerical class IDs used in the tables follow the prepared dataset mapping; this report deliberately avoids inventing unsupported official class descriptions.
+
+---
+
+**Project status:** Fixed-budget CNN comparison, three-seed held-out test evaluation, and visual error analysis completed. Results are observational and reproducible from the saved protocol, dataset preparation, and checkpoints.
